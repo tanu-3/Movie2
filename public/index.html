@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        #chat-container {
+            width: 100%;
+            max-width: 600px;
+            background: #fff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .message {
+            margin-bottom: 20px;
+        }
+
+        .message.user {
+            text-align: right;
+            color: #4CAF50;
+        }
+
+        .message.bot {
+            text-align: left;
+            color: #333;
+        }
+
+        .message.typing {
+            text-align: center;
+            color: #888;
+            font-style: italic;
+        }
+
+        #input-container {
+            display: flex;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+
+        #input-container input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+
+        #input-container button {
+            background: #4CAF50;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        #input-container button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="chat-container">
+        <div id="messages"></div>
+        <div id="input-container">
+            <input type="text" id="user-input" placeholder="Type your message..." />
+            <button id="send-button">Send</button>
+            <button id="new-movie-button" style="margin-left: 5px;">New Movie</button>
+        </div>
+    </div>
+
+    <script>
+        const messagesDiv = document.getElementById("messages");
+        const userInput = document.getElementById("user-input");
+        const sendButton = document.getElementById("send-button");
+        const newMovieButton = document.getElementById("new-movie-button");
+        const history = [];
+
+        // Append message to chat
+        function appendMessage(sender, text) {
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message ${sender}`;
+            messageDiv.innerHTML = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll
+        }
+        function formatScript(response) {
+            // Extract the script from the response
+            const scriptText = response.response[1][0][1];
+
+            // Check if scriptText is a string before processing it
+            if (typeof scriptText === "string") {
+                // Replace all instances of "\n" with a line break and bold the text between quotes
+                let formattedScript = scriptText.replace(/\n/g, '<br/>'); // Replace newlines with <br/>
+                formattedScript = formattedScript.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>'); // Bold text between **
+                // Bold text between quotes
+
+                return formattedScript;
+            } else {
+                // If the extracted text is not a string, return an error message
+                return "Error: Script content is not available.";
+            }
+        }
+
+
+        // Show typing indicator
+        function showTypingIndicator() {
+            const typingMessage = document.createElement("div");
+            typingMessage.className = "message typing";
+            typingMessage.textContent = "Typing...";
+            messagesDiv.appendChild(typingMessage);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll
+        }
+
+        // Remove typing indicator
+        function removeTypingIndicator() {
+            const typingMessage = document.querySelector(".message.typing");
+            if (typingMessage) {
+                typingMessage.remove();
+            }
+        }
+
+        // Send message
+        async function sendMessage() {
+            const userMessage = userInput.value.trim();
+            if (!userMessage) return;
+
+            // Append user message to chat
+            appendMessage("user", userMessage);
+            userInput.value = "";
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            try {
+                // Fetch bot response from the server
+                const response = await fetch("http://localhost:3000/api/chat", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ query: userMessage, history }),
+                });
+
+                const data = await response.json();
+                console.log(data);
+
+                const botMessage = formatScript(data);
+
+                // Remove typing indicator and append bot response to chat
+                removeTypingIndicator();
+                appendMessage("bot", botMessage);
+
+                // Update history with bot's response
+                history.push([userMessage, botMessage]);
+                console.log(history);
+            } catch (error) {
+                // Remove typing indicator and show error message
+                removeTypingIndicator();
+                appendMessage("bot", "Error: Unable to connect to the server.");
+                console.error(error);
+            }
+        }
+
+        function refreshPage() {
+            location.reload();
+        }
+
+        // Event listeners
+        sendButton.addEventListener("click", sendMessage);
+        newMovieButton.addEventListener("click", refreshPage);
+        userInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") sendMessage();
+        });
+    </script>
+</body>
+
+</html>
